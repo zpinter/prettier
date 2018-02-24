@@ -40,6 +40,31 @@ function parse(text, parsers, opts) {
   try {
     ast = babylon[parseMethod](text, babylonOptions);
   } catch (originalError) {
+    if (!opts.fromRetry && originalError.message) {
+      const match = originalError.message.match(
+        /^Unexpected token, expected "," \((\d+):(\d+)\)$/
+      );
+      if (match) {
+        const lineno = parseInt(match[1]);
+        const colno = parseInt(match[2]);
+        const lines = text.split("\n");
+        let line = lines[lineno - 1];
+        line = line.slice(0, colno - 1) + "," + line.slice(colno - 1);
+        lines[lineno - 1] = line;
+        const updated = lines.join("\n");
+
+        try {
+          return parse(
+            updated,
+            parsers,
+            Object.assign({}, opts, { fromRetry: true })
+          );
+        } catch (error) {
+          //do nothing
+        }
+      }
+    }
+
     try {
       ast = babylon[parseMethod](
         text,
